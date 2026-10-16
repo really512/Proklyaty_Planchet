@@ -7,6 +7,10 @@ var flicker_timer := 0.0
 var elapsed := 0.0
 var light: OmniLight3D
 var move_dir := Vector2.ZERO
+var youtube_panel: PanelContainer
+var ui_layer: CanvasLayer
+
+const YOUTUBE_ICON_PATH := "res://Screenshot_20261017_003126.jpg"
 
 func _ready() -> void:
 	_build_room()
@@ -30,6 +34,17 @@ func _build_room() -> void:
 	_add_box("Nightstand", Vector3(0.6, 0.45, -0.9), Vector3(0.8, 0.9, 0.8), wood_mat)
 	_add_box("Tablet body", Vector3(0.6, 0.96, -0.9), Vector3(0.56, 0.035, 0.38), _mat(Color("10131c")))
 	_add_box("Tablet screen", Vector3(0.6, 0.983, -0.9), Vector3(0.49, 0.012, 0.31), _mat(Color("27455b")))
+
+	# Put the image uploaded by GingerXYT directly on the 3D tablet screen.
+	var icon_texture := load(YOUTUBE_ICON_PATH) as Texture2D
+	var screen := get_node_or_null("Tablet screen") as MeshInstance3D
+	if screen != null and icon_texture != null:
+		var screen_material := StandardMaterial3D.new()
+		screen_material.albedo_texture = icon_texture
+		screen_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		screen_material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR
+		screen.material_override = screen_material
+
 	var screen_glow := OmniLight3D.new()
 	screen_glow.position = Vector3(0.6, 1.25, -0.9)
 	screen_glow.light_color = Color("5da9df")
@@ -61,39 +76,130 @@ func _build_room() -> void:
 	camera.rotation.x = deg_to_rad(-5)
 
 func _build_ui() -> void:
-	var ui := CanvasLayer.new()
-	add_child(ui)
+	ui_layer = CanvasLayer.new()
+	add_child(ui_layer)
 	var title := Label.new()
 	title.text = "ДОМ  •  00:01"
 	title.position = Vector2(24, 20)
 	title.add_theme_font_size_override("font_size", 22)
 	title.add_theme_color_override("font_color", Color("e1e4ee"))
-	ui.add_child(title)
+	ui_layer.add_child(title)
 	status_label = Label.new()
 	status_label.text = "Ты сидишь на кровати. Пока всё спокойно."
 	status_label.position = Vector2(24, 58)
 	status_label.add_theme_font_size_override("font_size", 18)
 	status_label.add_theme_color_override("font_color", Color("c2c6d4"))
-	ui.add_child(status_label)
+	ui_layer.add_child(status_label)
 	var back := Button.new()
 	back.text = "В МЕНЮ"
 	back.position = Vector2(24, 110)
 	back.size = Vector2(150, 48)
 	back.pressed.connect(func(): get_tree().change_scene_to_file("res://scenes/menu.tscn"))
-	ui.add_child(back)
+	ui_layer.add_child(back)
+
+	var youtube_button := Button.new()
+	youtube_button.text = "▶  ОТКРЫТЬ YOUTUBE"
+	youtube_button.position = Vector2(990, 610)
+	youtube_button.size = Vector2(260, 64)
+	youtube_button.add_theme_font_size_override("font_size", 18)
+	youtube_button.pressed.connect(_open_youtube)
+	ui_layer.add_child(youtube_button)
+
 	var help := Label.new()
 	help.text = "WASD / стрелки — двигаться • На планшете используй кнопки"
 	help.anchor_left = 0.03
-	help.anchor_right = 0.97
+	help.anchor_right = 0.78
 	help.anchor_top = 0.92
 	help.anchor_bottom = 0.99
 	help.add_theme_font_size_override("font_size", 15)
 	help.add_theme_color_override("font_color", Color("b5b8c6"))
-	ui.add_child(help)
-	ui.add_child(_touch_button("◀", Vector2(25, 540), Vector2(70, 70), func(): move_dir.x = -1))
-	ui.add_child(_touch_button("▶", Vector2(180, 540), Vector2(70, 70), func(): move_dir.x = 1))
-	ui.add_child(_touch_button("▲", Vector2(102, 490), Vector2(70, 70), func(): move_dir.y = -1))
-	ui.add_child(_touch_button("■", Vector2(102, 590), Vector2(70, 60), func(): move_dir = Vector2.ZERO))
+	ui_layer.add_child(help)
+	ui_layer.add_child(_touch_button("◀", Vector2(25, 540), Vector2(70, 70), func(): move_dir.x = -1))
+	ui_layer.add_child(_touch_button("▶", Vector2(180, 540), Vector2(70, 70), func(): move_dir.x = 1))
+	ui_layer.add_child(_touch_button("▲", Vector2(102, 490), Vector2(70, 70), func(): move_dir.y = -1))
+	ui_layer.add_child(_touch_button("■", Vector2(102, 590), Vector2(70, 60), func(): move_dir = Vector2.ZERO))
+
+func _open_youtube() -> void:
+	if youtube_panel != null and is_instance_valid(youtube_panel):
+		youtube_panel.queue_free()
+		youtube_panel = null
+		return
+
+	youtube_panel = PanelContainer.new()
+	youtube_panel.position = Vector2(610, 70)
+	youtube_panel.size = Vector2(610, 520)
+	youtube_panel.add_theme_stylebox_override("panel", _panel_style())
+	ui_layer.add_child(youtube_panel)
+
+	var content := VBoxContainer.new()
+	content.add_theme_constant_override("separation", 12)
+	youtube_panel.add_child(content)
+
+	var header := HBoxContainer.new()
+	content.add_child(header)
+	var icon := TextureRect.new()
+	icon.texture = load(YOUTUBE_ICON_PATH) as Texture2D
+	icon.custom_minimum_size = Vector2(64, 64)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	header.add_child(icon)
+
+	var heading := Label.new()
+	heading.text = "YouTube"
+	heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	heading.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	heading.add_theme_font_size_override("font_size", 28)
+	heading.add_theme_color_override("font_color", Color("f4f4f7"))
+	header.add_child(heading)
+
+	var close := Button.new()
+	close.text = "✕"
+	close.custom_minimum_size = Vector2(48, 48)
+	close.pressed.connect(func():
+		youtube_panel.queue_free()
+		youtube_panel = null
+	)
+	header.add_child(close)
+
+	var divider := HSeparator.new()
+	content.add_child(divider)
+
+	var note := Label.new()
+	note.text = "РЕКОМЕНДОВАНО ДЛЯ ТЕБЯ"
+	note.add_theme_font_size_override("font_size", 14)
+	note.add_theme_color_override("font_color", Color("9da4b5"))
+	content.add_child(note)
+
+	for i in range(3):
+		var video := Button.new()
+		video.text = "▶   Я У ТЕБЯ ДОМА" if i == 0 else "▶   Я У ТЕБЯ ДОМА  (%d)" % (i + 1)
+		video.custom_minimum_size = Vector2(0, 76)
+		video.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		video.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		video.add_theme_font_size_override("font_size", 19)
+		video.pressed.connect(func():
+			status_label.text = "Видео загружается…"
+			await get_tree().create_timer(1.2).timeout
+			if is_instance_valid(status_label):
+				status_label.text = "Я у тебя дома."
+		)
+		content.add_child(video)
+
+	var warning := Label.new()
+	warning.text = "Почему все видео показывают мою комнату?"
+	warning.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	warning.add_theme_font_size_override("font_size", 16)
+	warning.add_theme_color_override("font_color", Color("ff7777"))
+	content.add_child(warning)
+
+func _panel_style() -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color("11141e")
+	style.border_color = Color("484e60")
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(12)
+	style.set_content_margin_all(16)
+	return style
 
 func _touch_button(caption: String, pos: Vector2, dimensions: Vector2, action: Callable) -> Button:
 	var b := Button.new()
